@@ -4,9 +4,54 @@ var mongoose = require('mongoose');
 var User = require('./user-model');
 var bcrypt = require('bcryptjs');
 
+var passport = require('passport');
+var BasicStrategy = require('passport-http').BasicStrategy;
+
+
 var app = express();
 
 var jsonParser = bodyParser.json();
+
+
+var strategy = new BasicStrategy(function(username, password, callback) {
+    User.findOne({
+        username: username
+    }, function (err, user) {
+        if (err) {
+            callback(err);
+            return;
+        }
+
+        if (!user) {
+            return callback(null, false, {
+                message: 'Incorrect username.'
+            });
+        }
+
+        user.validatePassword(password, function(err, isValid) {
+            if (err) {
+                return callback(err);
+            }
+
+            if (!isValid) {
+                return callback(null, false, {
+                    message: 'Incorrect password.'
+                });
+            }
+            return callback(null, user);
+        });
+    });
+});
+
+passport.use(strategy);
+app.use(passport.initialize());
+
+
+app.get('/hidden', passport.authenticate('basic', {session: false}), function(req, res) {
+    res.json({
+        message: 'User authentication successful : pw = hashed value'
+    });
+});
 
 //GET route, displays a list of all the items in DB
 app.get('/users', function(req, res) {
